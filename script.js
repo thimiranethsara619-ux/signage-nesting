@@ -54,10 +54,7 @@ calculateBtn.addEventListener('click', async () => {
         let svgW = parseFloat(svgRoot.getAttribute('width')) || 1000;
         let svgH = parseFloat(svgRoot.getAttribute('height')) || 1000;
 
-        // මෙතනදි අපි අකුරු වෙන වෙනම අල්ලගන්නවා (path, rect ආදිය)
-        // නමුත් SVG එකේ <g> (group) එකක් තියෙනවා නම් ඒක ඇතුලේ තියෙන අකුරු ටිකත් වෙන වෙනම ගන්නවා
         let shapes = Array.from(svgDoc.querySelectorAll('path, rect, circle, polygon, text'));
-        
         let binElement = svgDoc.querySelector('#bin') || svgDoc.querySelector('#sheet');
         if(binElement) shapes = shapes.filter(s => s !== binElement);
 
@@ -69,11 +66,10 @@ calculateBtn.addEventListener('click', async () => {
         document.body.appendChild(tempSvg);
 
         const items = [];
-        const scale = Math.min(sheetW / svgW, sheetH / svgH);
+        // අකුරු වල ප්‍රමාණය තහඩුවට ගැලපෙන විදිහට හදනවා (අඟල් වලින්)
+        const scale = 1; 
 
-        // හැම හැඩයක්ම වෙන වෙනම ප්‍රමාණය කරනවා
         shapes.forEach(shape => {
-            // හැඩය තාවකාලිකව DOM එකට දාලා ප්‍රමාණය ගන්නවා
             const clone = shape.cloneNode(true);
             tempSvg.appendChild(clone);
             const bbox = clone.getBBox(); 
@@ -100,7 +96,6 @@ calculateBtn.addEventListener('click', async () => {
 
         if(items.length === 0) throw new Error("හරියට හැඩයක් හම්බුණේ නෑ.");
 
-        // Potpack එකෙන් හොඳම තැබීම හොයනවා
         const result = potpack(items);
 
         const usedW = Math.ceil(result.w);
@@ -122,7 +117,6 @@ calculateBtn.addEventListener('click', async () => {
         `;
         resultDiv.classList.add('active');
 
-        // පින්තූරය අඳිනවා
         previewDiv.innerHTML = '';
         const canvas = document.createElement('canvas');
         
@@ -140,7 +134,6 @@ calculateBtn.addEventListener('click', async () => {
             ctx.strokeRect(0, 0, sheetW * displayScale, sheetH * displayScale); 
         }
 
-        // හැම අකුරක්ම වෙන වෙනම Canvas එකට අඳිනවා
         items.forEach(item => {
             const shape = item.origShape;
             ctx.save();
