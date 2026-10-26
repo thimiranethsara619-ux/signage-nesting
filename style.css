@@ -49,7 +49,6 @@ input[type="number"], input[type="file"], select {
     width: 100%;
 }
 
-/* මේ කොටස තමයි Size කොටු හරියට පෙන්නන්න හදලා තියෙන්නේ */
 .size-inputs {
     display: flex;
     align-items: center;
@@ -58,7 +57,7 @@ input[type="number"], input[type="file"], select {
 }
 
 .size-inputs input {
-    flex: 1; /* කොටු දෙක සමානව ලොකු වෙන්න */
+    flex: 1;
 }
 
 .size-inputs span {
@@ -67,7 +66,7 @@ input[type="number"], input[type="file"], select {
 }
 
 .size-inputs select {
-    width: 120px; /* යුනිට් එක තෝරන එකේ පළල */
+    width: 120px;
     flex: none;
 }
 
