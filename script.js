@@ -31,6 +31,7 @@ calculateBtn.addEventListener('click', async () => {
     const multiplier = parseFloat(unitSelect.value);
     const unitText = unitSelect.options[unitSelect.selectedIndex].text;
 
+    // තහඩුවේ ප්‍රමාණය mm වලට හරවනවා
     const sheetW = parseFloat(sheetWidthInput.value) * multiplier;
     const sheetH = parseFloat(sheetHeightInput.value) * multiplier;
     const spacing = parseFloat(spacingInput.value); 
@@ -49,42 +50,49 @@ calculateBtn.addEventListener('click', async () => {
     try {
         const parser = new DOMParser();
         const svgDoc = parser.parseFromString(uploadedSVG, "image/svg+xml");
+        
+        // 1. මුලින්ම SVG එකේ සම්පූර්ණ ප්‍රමාණය (ViewBox) එක ගන්නවා
         const svgRoot = svgDoc.documentElement;
+        const viewBox = svgRoot.getAttribute('viewBox');
+        let svgW = 1000, svgH = 1000;
         
-        // SVG එකේ ප්‍රමාණය (viewBox) එක ගන්නවා
-        let viewBox = svgRoot.getAttribute('viewBox');
-        let svgWidth = parseFloat(svgRoot.getAttribute('width')) || 1000;
-        let svgHeight = parseFloat(svgRoot.getAttribute('height')) || 1000;
-        
-        // අපි තහඩුවේ ප්‍රමාණයට සාපේක්ෂව SVG එක scale කරනවා
-        let scaleX = sheetW / svgWidth;
-        let scaleY = sheetH / svgHeight;
-        
-        let shapes = Array.from(svgDoc.querySelectorAll('path, rect, circle, polygon, text'));
-        let binElement = svgDoc.querySelector('#bin') || svgDoc.querySelector('#sheet');
-        
-        if(binElement) {
-            shapes = shapes.filter(s => s !== binElement);
+        if (viewBox) {
+            const parts = viewBox.split(' ').map(Number);
+            svgW = parts[2];
+            svgH = parts[3];
+        } else {
+            svgW = parseFloat(svgRoot.getAttribute('width')) || 1000;
+            svgH = parseFloat(svgRoot.getAttribute('height')) || 1000;
         }
 
-        if(shapes.length === 0) throw new Error("SVG එකේ කිසිම හැඩයක් (අකුරක්) හම්බුණේ නෑ.");
+        // 2. අපේ තහඩුවට ගැලපෙන්න කී ගුණයක් වැඩි කරන්න ඕනද කියලා හදනවා
+        const scaleX = sheetW / svgW;
+        const scaleY = sheetH / svgH;
+        const scale = Math.min(scaleX, scaleY); // තහඩුවට ඇතුලත් වෙන්න ඕන නිසා අඩුම එක ගන්නවා
+
+        // 3. අකුරු ටික ගන්නවා
+        let shapes = Array.from(svgDoc.querySelectorAll('path, rect, circle, polygon, text'));
+        
+        // Sheet එකේ රාමුව (bin) අයින් කරනවා
+        let binElement = svgDoc.querySelector('#bin') || svgDoc.querySelector('#sheet');
+        if(binElement) shapes = shapes.filter(s => s !== binElement);
+
+        if(shapes.length === 0) throw new Error("SVG එකේ අකුරු හම්බුණේ නෑ.");
 
         const items = [];
 
         shapes.forEach(shape => {
-            const clone = shape.cloneNode(true);
-            const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-            tempSvg.appendChild(clone);
-            document.body.appendChild(tempSvg);
-            
             // අකුරේ ප්‍රමාණය ගන්නවා
-            const bbox = clone.getBBox(); 
+            const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            tempSvg.appendChild(shape.cloneNode(true));
+            document.body.appendChild(tempSvg);
+            const bbox = tempSvg.firstChild.getBBox(); 
             document.body.removeChild(tempSvg);
 
             if(bbox.width > 0 && bbox.height > 0) {
-                // මෙතනදි අපි අකුරු වල ප්‍රමාණය තහඩුවට ගැලපෙන්න scale කරනවා
-                let actualW = bbox.width * scaleX;
-                let actualH = bbox.height * scaleY;
+                // අපි අකුරේ ප්‍රමාණය තහඩුවේ ප්‍රමාණයට ගැලපෙන විදිහට වැඩි කරනවා
+                let actualW = bbox.width * scale;
+                let actualH = bbox.height * scale;
 
                 items.push({
                     w: actualW + spacing, 
@@ -92,22 +100,23 @@ calculateBtn.addEventListener('click', async () => {
                     origShape: shape,
                     origW: actualW,
                     origH: actualH,
-                    origX: bbox.x * scaleX,
-                    origY: bbox.y * scaleY,
-                    scaleX: scaleX,
-                    scaleY: scaleY
+                    scale: scale,
+                    origX: bbox.x * scale,
+                    origY: bbox.y * scale
                 });
             }
         });
 
+        // 4. Potpack එකෙන් හොඳම තැබීම හොයනවා
         const result = potpack(items);
 
+        // 5. කීයක් Sheet යනවද ගණනය කරනවා
         const usedW = Math.ceil(result.w);
         const usedH = Math.ceil(result.h);
         
         const sheetsWise = Math.ceil(usedW / sheetW);
         const sheetsHigh = Math.ceil(usedH / sheetH);
-        const totalSheets = sheetsWise * sheetsHigh;
+        const totalSheets = Math.max(1, sheetsWise * sheetsHigh);
 
         resultDiv.innerHTML = `
             <h2>📊 ප්‍රතිඵලය</h2>
@@ -120,10 +129,11 @@ calculateBtn.addEventListener('click', async () => {
         `;
         resultDiv.classList.add('active');
 
+        // 6. පින්තූරය අඳිනවා (Canvas)
         previewDiv.innerHTML = '';
         const canvas = document.createElement('canvas');
         
-        // පින්තූරය ලස්සනට පේන්න ප්‍රමාණය හදනවා
+        // පින්තූරය ලස්සනට පේන්න ප්‍රමාණය හදනවා (Max 800px)
         const displayScale = Math.min(800 / usedW, 600 / usedH, 1);
         canvas.width = usedW * displayScale;
         canvas.height = usedH * displayScale;
@@ -136,8 +146,8 @@ calculateBtn.addEventListener('click', async () => {
         ctx.lineWidth = 1;
         
         // තහඩු මායිම් අඳිනවා
-        for(let i=0; i<totalSheets; i++) {
-            ctx.strokeRect(0, (i * sheetH) * displayScale, sheetW * displayScale, sheetH * displayScale); 
+        for(let i=0; i<=totalSheets; i++) {
+            ctx.strokeRect(0, 0, sheetW * displayScale, sheetH * displayScale); 
         }
 
         // අකුරු අඳිනවා
@@ -145,11 +155,11 @@ calculateBtn.addEventListener('click', async () => {
             const shape = item.origShape;
             ctx.save();
             
-            // Scale කරනවා
-            ctx.scale(displayScale * item.scaleX, displayScale * item.scaleY);
+            // අකුරු හරි ප්‍රමාණයට ලොකු කරනවා
+            ctx.scale(displayScale * item.scale, displayScale * item.scale);
             
-            // හරි තැනට තියනවා
-            ctx.translate(item.x / item.scaleX - item.origX / item.scaleX, item.y / item.scaleY - item.origY / item.scaleY);
+            // අකුරු හරි තැනට තියනවා
+            ctx.translate((item.x / item.scale) - (item.origX / item.scale), (item.y / item.scale) - (item.origY / item.scale));
             
             if (shape.tagName === 'path') {
                 const path2d = new Path2D(shape.getAttribute('d'));
@@ -157,7 +167,7 @@ calculateBtn.addEventListener('click', async () => {
                 ctx.fill(path2d);
             } else if (shape.tagName === 'rect') {
                 ctx.fillStyle = '#000000';
-                ctx.fillRect(0, 0, item.origW / item.scaleX, item.origH / item.scaleY);
+                ctx.fillRect(0, 0, item.origW / item.scale, item.origH / item.scale);
             }
             ctx.restore();
         });
