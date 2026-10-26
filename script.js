@@ -1,7 +1,6 @@
 // SVGNest library එක load වෙලාද බලන්න
 let nestLib = null;
 try {
-    // svgnest CDN එකේ global variable එක
     nestLib = window.SvgNest || null;
 } catch(e) {
     console.log("SVGNest library not loaded yet");
@@ -16,6 +15,7 @@ const sheetWidthInput = document.getElementById('sheetWidth');
 const sheetHeightInput = document.getElementById('sheetHeight');
 const spacingInput = document.getElementById('spacing');
 const rotationsSelect = document.getElementById('rotations');
+const unitSelect = document.getElementById('unitSelect'); // අලුත් යුනිට් එක
 
 let uploadedSVG = null;
 
@@ -38,9 +38,13 @@ calculateBtn.addEventListener('click', async () => {
         return;
     }
 
-    const sheetW = parseFloat(sheetWidthInput.value);
-    const sheetH = parseFloat(sheetHeightInput.value);
-    const spacing = parseFloat(spacingInput.value);
+    // තෝරාගත් යුනිට් එක අනුව mm වලට කන්වර්ට් කරන ගුණාකාරය
+    const multiplier = parseFloat(unitSelect.value);
+    const unitText = unitSelect.options[unitSelect.selectedIndex].text;
+
+    const sheetW = parseFloat(sheetWidthInput.value) * multiplier;
+    const sheetH = parseFloat(sheetHeightInput.value) * multiplier;
+    const spacing = parseFloat(spacingInput.value) * multiplier; // පරතරයත් එකම යුනිට් එකෙන් ගන්නවා
     const rotations = parseInt(rotationsSelect.value);
 
     if (!sheetW || !sheetH) {
@@ -82,7 +86,7 @@ calculateBtn.addEventListener('click', async () => {
 
         // SVGNest library එක load වෙලා නැත්නම් error
         if (!nestLib) {
-            throw new Error("SVGNest library එක load වුණේ නෑ. Internet connection එක බලන්න.");
+            throw new Error("SVGNest library එක load වුණේ නෑ. Internet connection එක බලන්න හෝ page එක refresh කරන්න.");
         }
 
         // SVGNest instance එකක් හදන්න
@@ -130,8 +134,8 @@ calculateBtn.addEventListener('click', async () => {
                     <p><strong>භාවිතය:</strong> ${(efficiency * 100).toFixed(1)}%</p>
                     <p><strong>නාස්තිය:</strong> ${wastePercent}%</p>
                     <p style="color: #666; font-size: 14px;">
-                        Sheet size: ${sheetW}mm × ${sheetH}mm | 
-                        අකුරු අතර පරතරය: ${spacing}mm | 
+                        Sheet size: ${sheetWidthInput.value} × ${sheetHeightInput.value} (${unitText}) | 
+                        අකුරු අතර පරතරය: ${spacingInput.value} (${unitText}) | 
                         භ්‍රමණ: ${rotations} කෝණ
                     </p>
                 `;
