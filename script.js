@@ -31,11 +31,8 @@ calculateBtn.addEventListener('click', async () => {
     const multiplier = parseFloat(unitSelect.value);
     const unitText = unitSelect.options[unitSelect.selectedIndex].text;
 
-    // Sheet size එක තෝරපු යුනිට් එකෙන් mm වලට හරවනවා
     const sheetW = parseFloat(sheetWidthInput.value) * multiplier;
     const sheetH = parseFloat(sheetHeightInput.value) * multiplier;
-    
-    // ⚠️ මෙතන තමයි අලුත් වෙනස: පරතරය හැමවෙලේම මිලිමීටර් (mm) වලින් විතරයි ගන්නේ
     const spacing = parseFloat(spacingInput.value); 
 
     if (!sheetW || !sheetH) {
@@ -52,6 +49,16 @@ calculateBtn.addEventListener('click', async () => {
     try {
         const parser = new DOMParser();
         const svgDoc = parser.parseFromString(uploadedSVG, "image/svg+xml");
+        const svgRoot = svgDoc.documentElement;
+        
+        // SVG එකේ ප්‍රමාණය (viewBox) එක ගන්නවා
+        let viewBox = svgRoot.getAttribute('viewBox');
+        let svgWidth = parseFloat(svgRoot.getAttribute('width')) || 1000;
+        let svgHeight = parseFloat(svgRoot.getAttribute('height')) || 1000;
+        
+        // අපි තහඩුවේ ප්‍රමාණයට සාපේක්ෂව SVG එක scale කරනවා
+        let scaleX = sheetW / svgWidth;
+        let scaleY = sheetH / svgHeight;
         
         let shapes = Array.from(svgDoc.querySelectorAll('path, rect, circle, polygon, text'));
         let binElement = svgDoc.querySelector('#bin') || svgDoc.querySelector('#sheet');
@@ -70,18 +77,25 @@ calculateBtn.addEventListener('click', async () => {
             tempSvg.appendChild(clone);
             document.body.appendChild(tempSvg);
             
+            // අකුරේ ප්‍රමාණය ගන්නවා
             const bbox = clone.getBBox(); 
             document.body.removeChild(tempSvg);
 
             if(bbox.width > 0 && bbox.height > 0) {
+                // මෙතනදි අපි අකුරු වල ප්‍රමාණය තහඩුවට ගැලපෙන්න scale කරනවා
+                let actualW = bbox.width * scaleX;
+                let actualH = bbox.height * scaleY;
+
                 items.push({
-                    w: bbox.width + spacing, // දැන් මේකට එකතු වෙන්නේ mm 3ක් විතරයි
-                    h: bbox.height + spacing,
+                    w: actualW + spacing, 
+                    h: actualH + spacing,
                     origShape: shape,
-                    origW: bbox.width,
-                    origH: bbox.height,
-                    origX: bbox.x,
-                    origY: bbox.y
+                    origW: actualW,
+                    origH: actualH,
+                    origX: bbox.x * scaleX,
+                    origY: bbox.y * scaleY,
+                    scaleX: scaleX,
+                    scaleY: scaleY
                 });
             }
         });
@@ -101,7 +115,7 @@ calculateBtn.addEventListener('click', async () => {
             <p><strong>මුළු භාවිතා වූ ප්‍රමාණය:</strong> ${usedW.toFixed(0)} x ${usedH.toFixed(0)} (mm)</p>
             <p style="color: #666; font-size: 14px; margin-top: 15px;">
                 Sheet size: ${sheetWidthInput.value} × ${sheetHeightInput.value} (${unitText}) <br>
-                අකුරු අතර පරතරය: ${spacing} mm (සෑම විටම)
+                අකුරු අතර පරතරය: ${spacing} mm
             </p>
         `;
         resultDiv.classList.add('active');
@@ -109,9 +123,10 @@ calculateBtn.addEventListener('click', async () => {
         previewDiv.innerHTML = '';
         const canvas = document.createElement('canvas');
         
-        const scale = Math.min(800 / usedW, 600 / usedH, 1);
-        canvas.width = usedW * scale;
-        canvas.height = usedH * scale;
+        // පින්තූරය ලස්සනට පේන්න ප්‍රමාණය හදනවා
+        const displayScale = Math.min(800 / usedW, 600 / usedH, 1);
+        canvas.width = usedW * displayScale;
+        canvas.height = usedH * displayScale;
         
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#ffffff';
@@ -120,15 +135,21 @@ calculateBtn.addEventListener('click', async () => {
         ctx.strokeStyle = '#cccccc';
         ctx.lineWidth = 1;
         
-        for(let i=0; i<=totalSheets; i++) {
-            ctx.strokeRect(0, 0, sheetW * scale, sheetH * scale); 
+        // තහඩු මායිම් අඳිනවා
+        for(let i=0; i<totalSheets; i++) {
+            ctx.strokeRect(0, (i * sheetH) * displayScale, sheetW * displayScale, sheetH * displayScale); 
         }
 
+        // අකුරු අඳිනවා
         items.forEach(item => {
             const shape = item.origShape;
             ctx.save();
-            ctx.scale(scale, scale);
-            ctx.translate(item.x - item.origX, item.y - item.origY);
+            
+            // Scale කරනවා
+            ctx.scale(displayScale * item.scaleX, displayScale * item.scaleY);
+            
+            // හරි තැනට තියනවා
+            ctx.translate(item.x / item.scaleX - item.origX / item.scaleX, item.y / item.scaleY - item.origY / item.scaleY);
             
             if (shape.tagName === 'path') {
                 const path2d = new Path2D(shape.getAttribute('d'));
@@ -136,7 +157,7 @@ calculateBtn.addEventListener('click', async () => {
                 ctx.fill(path2d);
             } else if (shape.tagName === 'rect') {
                 ctx.fillStyle = '#000000';
-                ctx.fillRect(0, 0, item.origW, item.origH);
+                ctx.fillRect(0, 0, item.origW / item.scaleX, item.origH / item.scaleY);
             }
             ctx.restore();
         });
