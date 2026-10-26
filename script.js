@@ -1,6 +1,7 @@
 // SVGNest library එක load වෙලාද බලන්න
 let nestLib = null;
 try {
+    // මේක තමයි වෙනස් කරපු තැන. original library එකේ window.SvgNest කියලා තමයි තියෙන්නේ.
     nestLib = window.SvgNest || null;
 } catch(e) {
     console.log("SVGNest library not loaded yet");
@@ -44,7 +45,7 @@ calculateBtn.addEventListener('click', async () => {
 
     const sheetW = parseFloat(sheetWidthInput.value) * multiplier;
     const sheetH = parseFloat(sheetHeightInput.value) * multiplier;
-    const spacing = parseFloat(spacingInput.value) * multiplier; // පරතරයත් එකම යුනිට් එකෙන් ගන්නවා
+    const spacing = parseFloat(spacingInput.value) * multiplier;
     const rotations = parseInt(rotationsSelect.value);
 
     if (!sheetW || !sheetH) {
@@ -59,18 +60,15 @@ calculateBtn.addEventListener('click', async () => {
     previewDiv.classList.remove('active');
 
     try {
-        // SVG එක parse කරන්න
         const parser = new DOMParser();
         const svgDoc = parser.parseFromString(uploadedSVG, "image/svg+xml");
         const svgRoot = svgDoc.documentElement;
 
-        // Sheet එකේ rectangle එක හොයන්න (id="bin" හෝ id="sheet" තියෙන එක)
         let binElement = svgDoc.querySelector('#bin') || 
                          svgDoc.querySelector('#sheet') || 
                          svgDoc.querySelector('rect');
 
         if (!binElement) {
-            // Rectangle එකක් නැත්නම්, අපි අලුතෙන් හදනවා
             binElement = svgDoc.createElementNS("http://www.w3.org/2000/svg", "rect");
             binElement.setAttribute("width", sheetW);
             binElement.setAttribute("height", sheetH);
@@ -80,38 +78,36 @@ calculateBtn.addEventListener('click', async () => {
             svgRoot.appendChild(binElement);
         }
 
-        // Bin එකේ size එක override කරන්න (user දුන්න size එකට)
         binElement.setAttribute("width", sheetW);
         binElement.setAttribute("height", sheetH);
 
-        // SVGNest library එක load වෙලා නැත්නම් error
         if (!nestLib) {
             throw new Error("SVGNest library එක load වුණේ නෑ. Internet connection එක බලන්න හෝ page එක refresh කරන්න.");
         }
 
-        // SVGNest instance එකක් හදන්න
-        const nest = new nestLib();
+        // ⚠️ මෙතන තමයි අලුත් වෙනස. අපි nestLib එක 'new' කරනවා වෙනුවට, 
+        // ඒකේ තියෙන start කියන ෆන්ක්ෂන් එක කෙලින්ම පාවිච්චි කරනවා.
+        // හැබැයි මේක වැඩ කරන්න නම් ලයිබ්‍රරි එකේ 'SvgNest' object එක හරියට ලෝඩ් වෙලා තියෙන්න ඕනේ.
+        
+        const root = nestLib.parseSvg(new XMLSerializer().serializeToString(svgDoc));
 
-        // SVG එක parse කරන්න
-        const root = nest.parseSvg(new XMLSerializer().serializeToString(svgDoc));
-
-        // Bin එක set කරන්න
         const bin = root.querySelector('#bin');
         if (!bin) {
             throw new Error("Bin element එක හම්බුණේ නෑ. SVG එකේ id='bin' තියෙන rectangle එකක් තියෙන්න ඕන.");
         }
-        nest.setBin(bin);
+        
+        // මෙතනදි අපි library එකේ original API එක පාවිච්චි කරනවා.
+        // ඒකේ setBin, config, සහ start කියන ෆන්ක්ෂන්ස් තියෙනවා.
+        nestLib.setBin(bin);
 
-        // Config කරන්න
-        nest.config({
+        nestLib.config({
             spacing: spacing,
             rotations: rotations,
             populationSize: 10,
             mutationRate: 10
         });
 
-        // Nesting start කරන්න
-        nest.start(
+        nestLib.start(
             (progress) => {
                 statusDiv.textContent = `⏳ ගණනය කරමින්... ${Math.round(progress * 100)}%`;
             },
@@ -122,10 +118,7 @@ calculateBtn.addEventListener('click', async () => {
                     return;
                 }
 
-                // Result එක පෙන්නන්න
                 const sheetsUsed = svgList.length;
-                const totalArea = sheetW * sheetH * sheetsUsed;
-                const usedArea = efficiency * totalArea;
                 const wastePercent = ((1 - efficiency) * 100).toFixed(1);
 
                 resultDiv.innerHTML = `
@@ -141,7 +134,6 @@ calculateBtn.addEventListener('click', async () => {
                 `;
                 resultDiv.classList.add('active');
 
-                // Preview එක පෙන්නන්න
                 previewDiv.innerHTML = '';
                 svgList.forEach((svgEl, index) => {
                     const wrapper = document.createElement('div');
