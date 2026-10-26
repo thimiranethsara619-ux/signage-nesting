@@ -31,9 +31,12 @@ calculateBtn.addEventListener('click', async () => {
     const multiplier = parseFloat(unitSelect.value);
     const unitText = unitSelect.options[unitSelect.selectedIndex].text;
 
+    // Sheet size එක තෝරපු යුනිට් එකෙන් mm වලට හරවනවා
     const sheetW = parseFloat(sheetWidthInput.value) * multiplier;
     const sheetH = parseFloat(sheetHeightInput.value) * multiplier;
-    const spacing = parseFloat(spacingInput.value) * multiplier;
+    
+    // ⚠️ මෙතන තමයි අලුත් වෙනස: පරතරය හැමවෙලේම මිලිමීටර් (mm) වලින් විතරයි ගන්නේ
+    const spacing = parseFloat(spacingInput.value); 
 
     if (!sheetW || !sheetH) {
         alert("Sheet size එක හරියට දාන්න!");
@@ -47,51 +50,44 @@ calculateBtn.addEventListener('click', async () => {
     previewDiv.classList.remove('active');
 
     try {
-        // SVG එක Browser එකේ ලෝඩ් කරලා ඒකේ shapes ටික ගන්නවා
         const parser = new DOMParser();
         const svgDoc = parser.parseFromString(uploadedSVG, "image/svg+xml");
         
-        // අකුරු / හැඩතල ටික ගන්නවා
         let shapes = Array.from(svgDoc.querySelectorAll('path, rect, circle, polygon, text'));
-        
-        // අපේ Sheet එක (bin) එක වෙනම හොයාගන්නවා
         let binElement = svgDoc.querySelector('#bin') || svgDoc.querySelector('#sheet');
+        
         if(binElement) {
             shapes = shapes.filter(s => s !== binElement);
         }
 
         if(shapes.length === 0) throw new Error("SVG එකේ කිසිම හැඩයක් (අකුරක්) හම්බුණේ නෑ.");
 
-        // හැඩතල වල ප්‍රමාණ ගණනය කරනවා (Bounding box)
         const items = [];
-        const shapeElements = [];
 
         shapes.forEach(shape => {
-            // හැඩයේ ප්‍රමාණය ගන්න අපි ඒක තාවකාලිකව DOM එකට දානවා
             const clone = shape.cloneNode(true);
             const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
             tempSvg.appendChild(clone);
             document.body.appendChild(tempSvg);
             
-            const bbox = clone.getBoundingClientRect(); // හැඩයේ ප්‍රමාණය
+            const bbox = clone.getBBox(); 
             document.body.removeChild(tempSvg);
 
             if(bbox.width > 0 && bbox.height > 0) {
                 items.push({
-                    w: bbox.width + spacing, // පරතරය එකතු කරනවා
+                    w: bbox.width + spacing, // දැන් මේකට එකතු වෙන්නේ mm 3ක් විතරයි
                     h: bbox.height + spacing,
                     origShape: shape,
                     origW: bbox.width,
-                    origH: bbox.height
+                    origH: bbox.height,
+                    origX: bbox.x,
+                    origY: bbox.y
                 });
-                shapeElements.push(shape);
             }
         });
 
-        // Potpack ලයිබ්‍රරි එකෙන් හොඳම තැබීම හොයනවා (මේක ඉතාම වේගවත්)
         const result = potpack(items);
 
-        // කීයක් Sheet යනවද ගණනය කරනවා
         const usedW = Math.ceil(result.w);
         const usedH = Math.ceil(result.h);
         
@@ -99,57 +95,48 @@ calculateBtn.addEventListener('click', async () => {
         const sheetsHigh = Math.ceil(usedH / sheetH);
         const totalSheets = sheetsWise * sheetsHigh;
 
-        // ප්‍රතිඵලය පෙන්නනවා
         resultDiv.innerHTML = `
             <h2>📊 ප්‍රතිඵලය</h2>
             <p><strong>යන Sheet ගණන:</strong> ${totalSheets} sheets</p>
-            <p><strong>මුළු භාවිතා වූ ප්‍රමාණය:</strong> ${usedW} x ${usedH} (${unitText})</p>
+            <p><strong>මුළු භාවිතා වූ ප්‍රමාණය:</strong> ${usedW.toFixed(0)} x ${usedH.toFixed(0)} (mm)</p>
             <p style="color: #666; font-size: 14px; margin-top: 15px;">
                 Sheet size: ${sheetWidthInput.value} × ${sheetHeightInput.value} (${unitText}) <br>
-                අකුරු අතර පරතරය: ${spacingInput.value} (${unitText})
+                අකුරු අතර පරතරය: ${spacing} mm (සෑම විටම)
             </p>
         `;
         resultDiv.classList.add('active');
 
-        // Canvas එකේ පින්තූරය අඳිනවා
         previewDiv.innerHTML = '';
         const canvas = document.createElement('canvas');
-        canvas.width = sheetW;
-        canvas.height = sheetH * totalSheets;
         
-        // පසුබිම සුදු කරනවා
+        const scale = Math.min(800 / usedW, 600 / usedH, 1);
+        canvas.width = usedW * scale;
+        canvas.height = usedH * scale;
+        
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Sheet එකේ මායිම අඳිනවා
         ctx.strokeStyle = '#cccccc';
-        ctx.lineWidth = 2;
-        for(let i=0; i<totalSheets; i++){
-             ctx.strokeRect(0, i * sheetH, sheetW, sheetH);
+        ctx.lineWidth = 1;
+        
+        for(let i=0; i<=totalSheets; i++) {
+            ctx.strokeRect(0, 0, sheetW * scale, sheetH * scale); 
         }
 
-        // හැඩතල Canvas එකට ඇදලා දානවා
         items.forEach(item => {
             const shape = item.origShape;
-            // අකුරු වල පිහිටීම (x, y)
-            const x = item.x;
-            const y = item.y;
-            
-            // SVG Path එක Canvas එකට ඇදලා දාන විදිහ
             ctx.save();
-            ctx.translate(x, y);
-            ctx.beginPath();
+            ctx.scale(scale, scale);
+            ctx.translate(item.x - item.origX, item.y - item.origY);
+            
             if (shape.tagName === 'path') {
-                const d = shape.getAttribute('d');
-                const path2d = new Path2D(d);
-                ctx.fillStyle = '#000000'; // අකුරු කළු පාටින්
+                const path2d = new Path2D(shape.getAttribute('d'));
+                ctx.fillStyle = '#000000'; 
                 ctx.fill(path2d);
             } else if (shape.tagName === 'rect') {
-                const w = parseFloat(shape.getAttribute('width'));
-                const h = parseFloat(shape.getAttribute('height'));
                 ctx.fillStyle = '#000000';
-                ctx.fillRect(0, 0, w, h);
+                ctx.fillRect(0, 0, item.origW, item.origH);
             }
             ctx.restore();
         });
