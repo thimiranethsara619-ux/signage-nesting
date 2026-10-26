@@ -1,11 +1,4 @@
-// SVGNest library එක load වෙලාද බලන්න
-let nestLib = null;
-try {
-    // මේක තමයි වෙනස් කරපු තැන. original library එකේ window.SvgNest කියලා තමයි තියෙන්නේ.
-    nestLib = window.SvgNest || null;
-} catch(e) {
-    console.log("SVGNest library not loaded yet");
-}
+let uploadedSVG = null;
 
 const fileInput = document.getElementById('svgFile');
 const calculateBtn = document.getElementById('calculateBtn');
@@ -17,8 +10,6 @@ const sheetHeightInput = document.getElementById('sheetHeight');
 const spacingInput = document.getElementById('spacing');
 const rotationsSelect = document.getElementById('rotations');
 const unitSelect = document.getElementById('unitSelect');
-
-let uploadedSVG = null;
 
 fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -39,7 +30,13 @@ calculateBtn.addEventListener('click', async () => {
         return;
     }
 
-    // තෝරාගත් යුනිට් එක අනුව mm වලට කන්වර්ට් කරන ගුණාකාරය
+    // ලයිබ්‍රරි එක ලෝඩ් වෙලා තියෙනවද බලනවා
+    if (typeof SvgNest === 'undefined') {
+        statusDiv.textContent = "❌ Error: SVGNest library එක load වෙලා නෑ. Page එක refresh කරන්න.";
+        statusDiv.classList.add('active');
+        return;
+    }
+
     const multiplier = parseFloat(unitSelect.value);
     const unitText = unitSelect.options[unitSelect.selectedIndex].text;
 
@@ -60,10 +57,15 @@ calculateBtn.addEventListener('click', async () => {
     previewDiv.classList.remove('active');
 
     try {
+        // SVGNest Instance එක හදනවා
+        const nest = new SvgNest();
+
+        // SVG එක parse කරනවා
         const parser = new DOMParser();
         const svgDoc = parser.parseFromString(uploadedSVG, "image/svg+xml");
         const svgRoot = svgDoc.documentElement;
 
+        // Bin එක හොයාගන්නවා (Sheet එක)
         let binElement = svgDoc.querySelector('#bin') || 
                          svgDoc.querySelector('#sheet') || 
                          svgDoc.querySelector('rect');
@@ -78,36 +80,26 @@ calculateBtn.addEventListener('click', async () => {
             svgRoot.appendChild(binElement);
         }
 
+        // දුන්න සයිස් එකට වෙනස් කරනවා
         binElement.setAttribute("width", sheetW);
         binElement.setAttribute("height", sheetH);
 
-        if (!nestLib) {
-            throw new Error("SVGNest library එක load වුණේ නෑ. Internet connection එක බලන්න හෝ page එක refresh කරන්න.");
-        }
-
-        // ⚠️ මෙතන තමයි අලුත් වෙනස. අපි nestLib එක 'new' කරනවා වෙනුවට, 
-        // ඒකේ තියෙන start කියන ෆන්ක්ෂන් එක කෙලින්ම පාවිච්චි කරනවා.
-        // හැබැයි මේක වැඩ කරන්න නම් ලයිබ්‍රරි එකේ 'SvgNest' object එක හරියට ලෝඩ් වෙලා තියෙන්න ඕනේ.
-        
-        const root = nestLib.parseSvg(new XMLSerializer().serializeToString(svgDoc));
-
+        // SVGNest එකට දත්ත දෙනවා
+        const svgString = new XMLSerializer().serializeToString(svgDoc);
+        const root = nest.parseSvg(svgString);
         const bin = root.querySelector('#bin');
-        if (!bin) {
-            throw new Error("Bin element එක හම්බුණේ නෑ. SVG එකේ id='bin' තියෙන rectangle එකක් තියෙන්න ඕන.");
-        }
         
-        // මෙතනදි අපි library එකේ original API එක පාවිච්චි කරනවා.
-        // ඒකේ setBin, config, සහ start කියන ෆන්ක්ෂන්ස් තියෙනවා.
-        nestLib.setBin(bin);
+        if (!bin) throw new Error("Bin (Sheet) එක හම්බුණේ නෑ. ඔයාගේ SVG එකේ rectangle එකට id='bin' දාලා තියෙනවද බලන්න.");
+        nest.setBin(bin);
 
-        nestLib.config({
+        nest.config({
             spacing: spacing,
             rotations: rotations,
             populationSize: 10,
             mutationRate: 10
         });
 
-        nestLib.start(
+        nest.start(
             (progress) => {
                 statusDiv.textContent = `⏳ ගණනය කරමින්... ${Math.round(progress * 100)}%`;
             },
