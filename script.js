@@ -30,13 +30,6 @@ calculateBtn.addEventListener('click', async () => {
         return;
     }
 
-    // ලයිබ්‍රරි එක ලෝඩ් වෙලා තියෙනවද බලනවා
-    if (typeof SvgNest === 'undefined') {
-        statusDiv.textContent = "❌ Error: SVGNest library එක load වෙලා නෑ. Page එක refresh කරන්න.";
-        statusDiv.classList.add('active');
-        return;
-    }
-
     const multiplier = parseFloat(unitSelect.value);
     const unitText = unitSelect.options[unitSelect.selectedIndex].text;
 
@@ -57,15 +50,10 @@ calculateBtn.addEventListener('click', async () => {
     previewDiv.classList.remove('active');
 
     try {
-        // SVGNest Instance එක හදනවා
-        const nest = new SvgNest();
-
-        // SVG එක parse කරනවා
         const parser = new DOMParser();
         const svgDoc = parser.parseFromString(uploadedSVG, "image/svg+xml");
         const svgRoot = svgDoc.documentElement;
 
-        // Bin එක හොයාගන්නවා (Sheet එක)
         let binElement = svgDoc.querySelector('#bin') || 
                          svgDoc.querySelector('#sheet') || 
                          svgDoc.querySelector('rect');
@@ -80,16 +68,17 @@ calculateBtn.addEventListener('click', async () => {
             svgRoot.appendChild(binElement);
         }
 
-        // දුන්න සයිස් එකට වෙනස් කරනවා
         binElement.setAttribute("width", sheetW);
         binElement.setAttribute("height", sheetH);
 
-        // SVGNest එකට දත්ත දෙනවා
         const svgString = new XMLSerializer().serializeToString(svgDoc);
+        
+        // SVGNest ලයිබ්‍රරි එකේ මූලික කොටස
+        const nest = new SvgNest();
         const root = nest.parseSvg(svgString);
         const bin = root.querySelector('#bin');
         
-        if (!bin) throw new Error("Bin (Sheet) එක හම්බුණේ නෑ. ඔයාගේ SVG එකේ rectangle එකට id='bin' දාලා තියෙනවද බලන්න.");
+        if (!bin) throw new Error("Sheet එක හම්බුණේ නෑ. ඔයාගේ SVG එකේ rectangle එකට id='bin' දාලා තියෙනවද බලන්න.");
         nest.setBin(bin);
 
         nest.config({
