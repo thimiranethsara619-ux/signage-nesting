@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signage Nesting - Sheet Calculator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>📐 Signage Sheet Calculator</h1>
+        <p class="subtitle">SVG උඩුගත කරලා, sheet size එක දාලා, කීයක් යනවද බලන්න</p>
+
+        <div class="input-group">
+            <label>1. SVG File එක උඩුගත කරන්න (අකුරු ටික + sheet එකේ rectangle එක ඇතුලේ)</label>
+            <input type="file" id="svgFile" accept=".svg">
+        </div>
+
+        <div class="input-group">
+            <label>2. Sheet Size (mm)</label>
+            <div class="size-inputs">
+                <input type="number" id="sheetWidth" placeholder="පළල (Width)" value="2440">
+                <span>×</span>
+                <input type="number" id="sheetHeight" placeholder="උස (Height)" value="1220">
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>3. අකුරු අතර පරතරය (mm)</label>
+            <input type="number" id="spacing" value="3" step="0.5">
+        </div>
+
+        <div class="input-group">
+            <label>4. භ්‍රමණය (Rotations)</label>
+            <select id="rotations">
+                <option value="4">90° × 4 (වේගවත්)</option>
+                <option value="12">30° × 12 (මධ්‍යම)</option>
+                <option value="36">10° × 36 (හොඳම, නමුත් හිමින්)</option>
+                <option value="360">360° (full, ගොඩක් හිමින්)</option>
+            </select>
+        </div>
+
+        <button id="calculateBtn">🚀 ගණනය කරන්න</button>
+
+        <div id="status" class="status"></div>
+        <div id="result" class="result"></div>
+        <div id="preview" class="preview"></div>
+    </div>
+
+    <!-- SVGNest library එක (CDN එකෙන්) -->
+    <script src="https://unpkg.com/svgnest@1.0.0/dist/svgnest.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
