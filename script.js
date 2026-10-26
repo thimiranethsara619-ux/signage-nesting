@@ -15,7 +15,7 @@ const sheetWidthInput = document.getElementById('sheetWidth');
 const sheetHeightInput = document.getElementById('sheetHeight');
 const spacingInput = document.getElementById('spacing');
 const rotationsSelect = document.getElementById('rotations');
-const unitSelect = document.getElementById('unitSelect'); // අලුත් යුනිට් එක
+const unitSelect = document.getElementById('unitSelect');
 
 let uploadedSVG = null;
 
@@ -133,9 +133,9 @@ calculateBtn.addEventListener('click', async () => {
                     <p><strong>යන Sheet ගණන:</strong> ${sheetsUsed} sheets</p>
                     <p><strong>භාවිතය:</strong> ${(efficiency * 100).toFixed(1)}%</p>
                     <p><strong>නාස්තිය:</strong> ${wastePercent}%</p>
-                    <p style="color: #666; font-size: 14px;">
-                        Sheet size: ${sheetWidthInput.value} × ${sheetHeightInput.value} (${unitText}) | 
-                        අකුරු අතර පරතරය: ${spacingInput.value} (${unitText}) | 
+                    <p style="color: #666; font-size: 14px; margin-top: 15px;">
+                        Sheet size: ${sheetWidthInput.value} × ${sheetHeightInput.value} (${unitText}) <br>
+                        අකුරු අතර පරතරය: ${spacingInput.value} (${unitText}) <br>
                         භ්‍රමණ: ${rotations} කෝණ
                     </p>
                 `;
