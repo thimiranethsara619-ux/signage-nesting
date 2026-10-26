@@ -31,7 +31,6 @@ calculateBtn.addEventListener('click', async () => {
     const multiplier = parseFloat(unitSelect.value);
     const unitText = unitSelect.options[unitSelect.selectedIndex].text;
 
-    // තහඩුවේ ප්‍රමාණය mm වලට හරවනවා
     const sheetW = parseFloat(sheetWidthInput.value) * multiplier;
     const sheetH = parseFloat(sheetHeightInput.value) * multiplier;
     const spacing = parseFloat(spacingInput.value); 
@@ -50,47 +49,37 @@ calculateBtn.addEventListener('click', async () => {
     try {
         const parser = new DOMParser();
         const svgDoc = parser.parseFromString(uploadedSVG, "image/svg+xml");
-        
-        // 1. මුලින්ම SVG එකේ සම්පූර්ණ ප්‍රමාණය (ViewBox) එක ගන්නවා
         const svgRoot = svgDoc.documentElement;
-        const viewBox = svgRoot.getAttribute('viewBox');
-        let svgW = 1000, svgH = 1000;
         
-        if (viewBox) {
-            const parts = viewBox.split(' ').map(Number);
-            svgW = parts[2];
-            svgH = parts[3];
-        } else {
-            svgW = parseFloat(svgRoot.getAttribute('width')) || 1000;
-            svgH = parseFloat(svgRoot.getAttribute('height')) || 1000;
-        }
+        let svgW = parseFloat(svgRoot.getAttribute('width')) || 1000;
+        let svgH = parseFloat(svgRoot.getAttribute('height')) || 1000;
 
-        // 2. අපේ තහඩුවට ගැලපෙන්න කී ගුණයක් වැඩි කරන්න ඕනද කියලා හදනවා
-        const scaleX = sheetW / svgW;
-        const scaleY = sheetH / svgH;
-        const scale = Math.min(scaleX, scaleY); // තහඩුවට ඇතුලත් වෙන්න ඕන නිසා අඩුම එක ගන්නවා
-
-        // 3. අකුරු ටික ගන්නවා
+        // මෙතනදි අපි අකුරු වෙන වෙනම අල්ලගන්නවා (path, rect ආදිය)
+        // නමුත් SVG එකේ <g> (group) එකක් තියෙනවා නම් ඒක ඇතුලේ තියෙන අකුරු ටිකත් වෙන වෙනම ගන්නවා
         let shapes = Array.from(svgDoc.querySelectorAll('path, rect, circle, polygon, text'));
         
-        // Sheet එකේ රාමුව (bin) අයින් කරනවා
         let binElement = svgDoc.querySelector('#bin') || svgDoc.querySelector('#sheet');
         if(binElement) shapes = shapes.filter(s => s !== binElement);
 
         if(shapes.length === 0) throw new Error("SVG එකේ අකුරු හම්බුණේ නෑ.");
 
-        const items = [];
+        const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        tempSvg.style.position = 'absolute';
+        tempSvg.style.visibility = 'hidden';
+        document.body.appendChild(tempSvg);
 
+        const items = [];
+        const scale = Math.min(sheetW / svgW, sheetH / svgH);
+
+        // හැම හැඩයක්ම වෙන වෙනම ප්‍රමාණය කරනවා
         shapes.forEach(shape => {
-            // අකුරේ ප්‍රමාණය ගන්නවා
-            const tempSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-            tempSvg.appendChild(shape.cloneNode(true));
-            document.body.appendChild(tempSvg);
-            const bbox = tempSvg.firstChild.getBBox(); 
-            document.body.removeChild(tempSvg);
+            // හැඩය තාවකාලිකව DOM එකට දාලා ප්‍රමාණය ගන්නවා
+            const clone = shape.cloneNode(true);
+            tempSvg.appendChild(clone);
+            const bbox = clone.getBBox(); 
+            tempSvg.removeChild(clone);
 
             if(bbox.width > 0 && bbox.height > 0) {
-                // අපි අකුරේ ප්‍රමාණය තහඩුවේ ප්‍රමාණයට ගැලපෙන විදිහට වැඩි කරනවා
                 let actualW = bbox.width * scale;
                 let actualH = bbox.height * scale;
 
@@ -100,17 +89,20 @@ calculateBtn.addEventListener('click', async () => {
                     origShape: shape,
                     origW: actualW,
                     origH: actualH,
-                    scale: scale,
                     origX: bbox.x * scale,
-                    origY: bbox.y * scale
+                    origY: bbox.y * scale,
+                    scale: scale
                 });
             }
         });
 
-        // 4. Potpack එකෙන් හොඳම තැබීම හොයනවා
+        document.body.removeChild(tempSvg);
+
+        if(items.length === 0) throw new Error("හරියට හැඩයක් හම්බුණේ නෑ.");
+
+        // Potpack එකෙන් හොඳම තැබීම හොයනවා
         const result = potpack(items);
 
-        // 5. කීයක් Sheet යනවද ගණනය කරනවා
         const usedW = Math.ceil(result.w);
         const usedH = Math.ceil(result.h);
         
@@ -122,6 +114,7 @@ calculateBtn.addEventListener('click', async () => {
             <h2>📊 ප්‍රතිඵලය</h2>
             <p><strong>යන Sheet ගණන:</strong> ${totalSheets} sheets</p>
             <p><strong>මුළු භාවිතා වූ ප්‍රමාණය:</strong> ${usedW.toFixed(0)} x ${usedH.toFixed(0)} (mm)</p>
+            <p><strong>අකුරු/හැඩතල ගණන:</strong> ${items.length}</p>
             <p style="color: #666; font-size: 14px; margin-top: 15px;">
                 Sheet size: ${sheetWidthInput.value} × ${sheetHeightInput.value} (${unitText}) <br>
                 අකුරු අතර පරතරය: ${spacing} mm
@@ -129,11 +122,10 @@ calculateBtn.addEventListener('click', async () => {
         `;
         resultDiv.classList.add('active');
 
-        // 6. පින්තූරය අඳිනවා (Canvas)
+        // පින්තූරය අඳිනවා
         previewDiv.innerHTML = '';
         const canvas = document.createElement('canvas');
         
-        // පින්තූරය ලස්සනට පේන්න ප්‍රමාණය හදනවා (Max 800px)
         const displayScale = Math.min(800 / usedW, 600 / usedH, 1);
         canvas.width = usedW * displayScale;
         canvas.height = usedH * displayScale;
@@ -144,21 +136,16 @@ calculateBtn.addEventListener('click', async () => {
         
         ctx.strokeStyle = '#cccccc';
         ctx.lineWidth = 1;
-        
-        // තහඩු මායිම් අඳිනවා
-        for(let i=0; i<=totalSheets; i++) {
+        for(let i=0; i<totalSheets; i++) {
             ctx.strokeRect(0, 0, sheetW * displayScale, sheetH * displayScale); 
         }
 
-        // අකුරු අඳිනවා
+        // හැම අකුරක්ම වෙන වෙනම Canvas එකට අඳිනවා
         items.forEach(item => {
             const shape = item.origShape;
             ctx.save();
             
-            // අකුරු හරි ප්‍රමාණයට ලොකු කරනවා
             ctx.scale(displayScale * item.scale, displayScale * item.scale);
-            
-            // අකුරු හරි තැනට තියනවා
             ctx.translate((item.x / item.scale) - (item.origX / item.scale), (item.y / item.scale) - (item.origY / item.scale));
             
             if (shape.tagName === 'path') {
