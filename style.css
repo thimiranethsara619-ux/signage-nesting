@@ -133,14 +133,16 @@ button:disabled {
     max-height: 600px;
     display: none;
     background: #fafafa;
+    padding: 20px;
 }
 
 .preview.active {
     display: block;
 }
 
-.preview svg {
+.preview canvas {
     display: block;
     margin: 0 auto;
-    max-width: 100%;
+    background: #fff;
+    border: 1px solid #ccc;
 }
