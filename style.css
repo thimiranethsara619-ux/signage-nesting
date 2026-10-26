@@ -41,22 +41,34 @@ h1 {
     color: #333;
 }
 
-.size-inputs {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.size-inputs input {
-    flex: 1;
-}
-
 input[type="number"], input[type="file"], select {
     padding: 10px 14px;
     border: 1px solid #ccc;
     border-radius: 8px;
     font-size: 16px;
     width: 100%;
+}
+
+/* මේ කොටස තමයි Size කොටු හරියට පෙන්නන්න හදලා තියෙන්නේ */
+.size-inputs {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.size-inputs input {
+    flex: 1; /* කොටු දෙක සමානව ලොකු වෙන්න */
+}
+
+.size-inputs span {
+    font-weight: bold;
+    font-size: 18px;
+}
+
+.size-inputs select {
+    width: 120px; /* යුනිට් එක තෝරන එකේ පළල */
+    flex: none;
 }
 
 button {
@@ -70,6 +82,7 @@ button {
     cursor: pointer;
     width: 100%;
     transition: background 0.2s;
+    margin-top: 10px;
 }
 
 button:hover {
@@ -129,4 +142,6 @@ button:disabled {
 
 .preview svg {
     display: block;
+    margin: 0 auto;
+    max-width: 100%;
 }
